@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="style.css" rel="stylesheet" />
+    <link href="/_packages/document.css" rel="stylesheet" />
+	<script src="/_packages/document.js"></script>
+	<script src="bower_components/rivets/dist/rivets.js"></script>
+    <title>Rivets - IE8 shim example</title>
+</head>
+
+<body>
+
+	<h1>IE8 shim exxample for Rivets</h1>
+	<p>This extends the Object.prototype and watches for changes to an Object instance, aka yer <b>model</b>!</p>
+
+	<p>Note: ensure ones markup is super clean, otherwise rivets can bind more than once in IE8</p>
+
+	<div id="auction">
+		<p>{ auction.counter }</p>
+		<div rv-show="auction.remaining | lt 120">
+			<h4>Hurry up!</h4>
+			<p>This auction is ending in { auction.remaining | time }.</p>
+		</div>
+		<ul>
+		  <li rv-each-item="auction.items" rv-class-done='item.done'>
+		    <input type="checkbox" rv-checked="item.done">
+		    <span>{ item.time | time }</span>
+		  </li>
+		</ul>
+		<button rv-on-click="controller.bid">Place a bid</button>
+	</div>
+
+	<p>Note: IE8 only calls the change event on a checkbox's when it is no longer focus, aka after clicking the checkbox click away to invoke the change</p> 
+
+<script class='pre'>
+
+	// Define ones data model
+	var model = {
+		auction: {
+			counter : 0,
+			items : []
+		},
+		controller: {
+			bid : function(){
+				// Increment the counter
+				// Call the shim method set, in the absence of Getters and Setters
+				model.auction.set( 'counter', model.auction.get('counter') + 1 );
+
+				// Insert a record into an Array
+				// Call the shim method Object.push, in the absence of Getters and Setters
+				model.auction.push( 'items', {
+					done : true,
+					time : (new Date())
+				} );
+			}
+		}
+	};
+</script>
+
+
+<script class="pre">
+	// Shimming up the model for IE8
+	// Overwrite the default adaptor
+
+	rivets.adapters['.'] = {
+		subscribe: function(obj, keypath, callback) {
+			obj.on('change:' + keypath, callback);
+		},
+		unsubscribe: function(obj, keypath, callback) {
+			obj.off('change:' + keypath, callback);
+		},
+
+		// probably dont need to overwrite these two, but follows the docs.
+		read: function(obj, keypath) {
+			return obj.get(keypath);
+		},
+		publish: function(obj, keypath, value) {
+			obj.set(keypath, value);
+		}
+	};
+
+	//
+	// These could potentially mess with other stuff but hey, it works - kind of.
+	Object.prototype.on = function(event_name, callback){
+		// Trigger listeners
+		this.__events = (this.__events || {});
+		this.__events[event_name] = (this.__events[event_name]||[]);
+		this.__events[event_name].push(callback);
+	}
+
+	Object.prototype.off = function(event_name, callback){
+		// Trigger listeners
+		var evts = this.__events[event_name];
+		for(var i=0;i<evts;i++){
+			if( evts[i] === callback ){
+				evts.splice(i,1);
+			}
+		}
+	}
+
+	Object.prototype.set = function(prop, value){
+		// Assign the value
+		this[prop] = value;
+
+		// Trigger listeners
+		var evts = this.__events["change:"+prop];
+		for( var i=0; i<evts.length; i++){
+			evts[i].call(this);
+		}
+	}
+
+	Object.prototype.get = function(prop){
+		return this[prop];
+	}
+
+	Object.prototype.push = function(prop, item){
+		// Assign the value
+		this[prop].push( item );
+
+		// Trigger listeners
+		var evts = this.__events["change:"+prop];
+		for( var i=0; i<evts.length; i++){
+			evts[i].call(this);
+		}
+	}
+
+	// SHIMS a dependency of Rivets
+	if(!String.prototype.trim){
+		String.prototype.trim = function(){
+			return this.replace(/(^\s*|\s*$)/g,'');
+		};
+	}
+
+</script>
+
+
+<script class="pre">
+	// Bind rivets to the DOM element to map with the model
+	var view = rivets.bind( document.querySelector('#auction'), model );
+</script>
+
+</body>
+</html>

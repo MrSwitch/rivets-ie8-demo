@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="bower_components/rivets/dist/rivets.js"></script>
+    <script src="watch-shim.js"></script>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<script>
+	/**
+	 * Include the model
+	 */
+	var model = {
+		auction: {
+			counter : 0,
+			items : []
+		},
+		controller: {
+			bid : function(){
+
+				// Increment the counter
+				model.auction.counter++;
+
+				// Call the shim method Object.push, in the absence of Getters and Setters
+				model.auction.items.push({
+					done : true,
+					time : (new Date())
+				});
+			}
+		}
+	};
+</script>
+
+<script>
+
+// Shimming up the model for IE8
+rivets.adapters['.'].subscribe = function(obj, keypath, callback) {
+	var watching = createWatcher(obj);
+	watching.watch(keypath, callback);
+};
+rivets.adapters['.'].unsubscribe = function(obj, keypath, callback) {
+	watching.unwatch(keypath, callback);
+};
+
+// SHIMS
+String.prototype.trim = function(){
+	return this.replace(/(^\s*|\s*$)/g,'');
+};
+
+</script>
+
+
+<body>
+	<div id="auction">
+		<h1>IE8 binding listeners with WatchJS</h1>
+
+		<p>{ auction.counter }</p>
+
+		<div rv-show="auction.remaining | lt 120">
+			<h4>Hurry up!</h4>
+			<p>This auction is ending in { auction.remaining | time }.</p>
+		</div>
+		<ul>
+		  <li rv-each-item="auction.items" rv-class-done='item.done'>
+		    <input type="checkbox" rv-checked="item.done">
+		    <span>{ item.time | time }</span>
+		  </li>
+		</ul>
+		<button rv-on-click="controller.bid">Place a bid</button>
+	</div>
+	<script>
+		var view = rivets.bind(document.querySelector('#auction'), model );
+	</script>
+</body>
+</html>
